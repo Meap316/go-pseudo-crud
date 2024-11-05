@@ -1,32 +1,40 @@
 package main
 
 import (
-	"strings"
-
-	"strconv"
-
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 type User struct {
-	ID       string `uri:"id"`
+	gorm.Model
+	ID       int    `uri:"id" autoincrement`
 	Username string `form:"username"`
 	Password string `form:"password"`
 }
 
-// User
-var users []User
-
 func main() {
+
+	// Open Database Connection
+	dsn := "host=68.183.179.230 user=admin password=0qP2JDV3EVkEMEd dbname=latihan_irvan port=5432 sslmode=disable TimeZone=Asia/Jakarta"
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+
+	db.AutoMigrate(&User{})
+
+	if err != nil {
+		panic("failed to connect database")
+	}
+
+	// Database Migration
 
 	r := gin.Default()
 
 	r.GET("/user/:id", func(c *gin.Context) {
 		// Get user
-		var user = getUserByID(c.Param("id"))
+		var user = getUserByID(c.Param("id"), db)
 
 		// User not found
-		if user.ID == "" {
+		if user.ID == 0 {
 			c.JSON(404, gin.H{
 				"status":  "failed",
 				"message": "User not found",
@@ -48,7 +56,7 @@ func main() {
 
 	r.POST("/user", func(c *gin.Context) {
 		// Check if username exist
-		var user = getUserByUsername(c.PostForm("username"))
+		var user = getUserByUsername(c.PostForm("username"), db)
 
 		if user.Username != "" {
 			c.JSON(400, gin.H{
@@ -59,12 +67,8 @@ func main() {
 		}
 
 		// Create user
-		user = User{
-			ID:       strconv.Itoa(len(users) + 1),
-			Username: c.PostForm("username"),
-			Password: c.PostForm("password"),
-		}
-		users = append(users, user)
+
+		user = createUser(c.PostForm("username"), c.PostForm("password"), db)
 
 		c.JSON(200, gin.H{
 			"status":  "success",
@@ -79,10 +83,10 @@ func main() {
 
 	r.PUT("/user/:id", func(c *gin.Context) {
 		// Get user
-		var user = getUserByID(c.Param("id"))
+		var user = getUserByID(c.Param("id"), db)
 
 		// User not found
-		if user.ID == "" {
+		if user.ID == 0 {
 			c.JSON(404, gin.H{
 				"status":  "failed",
 				"message": "User not found",
@@ -94,7 +98,7 @@ func main() {
 		user.Username = c.PostForm("username")
 		user.Password = c.PostForm("password")
 
-		setUser(user)
+		setUser(user, db)
 
 		c.JSON(200, gin.H{
 			"status":  "success",
@@ -109,10 +113,10 @@ func main() {
 
 	r.DELETE("/user/:id", func(c *gin.Context) {
 		// Get user
-		var user = getUserByID(c.Param("id"))
+		var user = getUserByID(c.Param("id"), db)
 
 		// User not found
-		if user.ID == "" {
+		if user.ID == 0 {
 			c.JSON(404, gin.H{
 				"status":  "failed",
 				"message": "User not found",
@@ -120,7 +124,7 @@ func main() {
 			return
 		}
 
-		deleteUser(user)
+		deleteUser(user, db)
 
 		c.JSON(200, gin.H{
 			"status":  "success",
@@ -141,7 +145,7 @@ func main() {
 
 		// Check if user exist
 
-		var user = getUserByUsername(username)
+		var user = getUserByUsername(username, db)
 
 		if user.Username == "" {
 			c.JSON(404, gin.H{
@@ -168,40 +172,46 @@ func main() {
 	r.Run() // listen and serve on 0.0.0.0:8080
 }
 
-func getUserByID(id string) User {
-	for _, user := range users {
-		if user.ID == id {
-			return user
-		}
+func createUser(username string, password string, db *gorm.DB) User {
+
+	user := User{
+		Username: username,
+		Password: password,
 	}
-	return User{}
+
+	db.Create(&user)
+
+	return user
 }
 
-func getUserByUsername(username string) User {
-	for _, user := range users {
-		if strings.EqualFold(user.Username, username) {
-			return user
-		}
-	}
-	return User{}
+func getUserByID(id string, db *gorm.DB) User {
+
+	user := User{}
+
+	db.First(&user, "id = ?", id)
+
+	return user
 }
 
-func setUser(user User) User {
-	for i, u := range users {
-		if u.ID == user.ID {
-			users[i] = user
-			return user
-		}
-	}
-	return User{}
+func getUserByUsername(username string, db *gorm.DB) User {
+
+	user := User{}
+
+	db.First(&user, "username = ?", username)
+
+	return user
 }
 
-func deleteUser(user User) User {
-	for i, u := range users {
-		if u.ID == user.ID {
-			users = append(users[:i], users[i+1:]...)
-			return user
-		}
-	}
+func setUser(user User, db *gorm.DB) User {
+
+	db.Save(&user)
+
+	return user
+}
+
+func deleteUser(user User, db *gorm.DB) User {
+
+	db.Delete(&user)
+
 	return User{}
 }
