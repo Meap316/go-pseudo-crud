@@ -8,7 +8,6 @@ import (
 
 type User struct {
 	gorm.Model
-	ID       int    `uri:"id" autoincrement`
 	Username string `form:"username"`
 	Password string `form:"password"`
 }
@@ -16,10 +15,8 @@ type User struct {
 func main() {
 
 	// Open Database Connection
-	dsn := "host=68.183.179.230 user=admin password=0qP2JDV3EVkEMEd dbname=latihan_irvan port=5432 sslmode=disable TimeZone=Asia/Jakarta"
+	dsn := "host=68.183.179.230 user=admin password=0qP2JDV3EVkEMEd dbname=latihan_gorm_irvan port=5432 sslmode=disable TimeZone=Asia/Jakarta"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-
-	db.AutoMigrate(&User{})
 
 	if err != nil {
 		panic("failed to connect database")
